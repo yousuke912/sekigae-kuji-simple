@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>懇親会 席替えくじ（シンプル版）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root { --primary: #2c5282; --green: #276749; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Kaku Gothic ProN','Meiryo',sans-serif; background: #f7fafc; color: #2d3748; font-size: 14px; }
+
+.page { max-width: 600px; margin: 0 auto; padding: 28px 20px; }
+h1 { font-size: 21px; font-weight: 700; color: var(--primary); text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: #718096; font-size: 13px; margin-bottom: 24px; }
+.badge { display:inline-block; background:#ebf8ff; color:#2b6cb0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-bottom:6px; }
+
+.card { background: white; border-radius: 12px; padding: 22px; box-shadow: 0 1px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+.section-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #a0aec0; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; }
+.section-label:first-child { margin-top: 0; }
+
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 5px; }
+.field input[type=number], .field input[type=date] {
+  width: 100%; padding: 9px 13px; border: 1.5px solid #e2e8f0;
+  border-radius: 8px; font-size: 15px; color: #2d3748; -webkit-appearance: none;
+}
+.field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(44,82,130,0.1); }
+
+.btn { padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn-primary { background: var(--primary); color: white; width: 100%; padding: 13px; font-size: 15px; margin-top: 8px; }
+.btn-primary:hover { background: #2a4a7f; }
+.btn-gray { background: #4a5568; color: white; }
+.btn-gray:hover { background: #2d3748; }
+.btn-outline { background: white; color: var(--primary); border: 2px solid var(--primary); }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+
+.info-box { padding: 10px 13px; background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; color: #2c5282; font-size: 13px; line-height: 1.8; margin-top: 10px; }
+.warn-box { padding: 10px 13px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; color: #c53030; font-size: 13px; margin-top: 10px; display: none; }
+
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #4a5568; }
+.legend-dot { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid #a0aec0; flex-shrink: 0; }
+
+.print-bar { display:none; background:white; border-bottom:1px solid #e2e8f0; padding:12px 20px; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; position:sticky; top:0; z-index:10; }
+.print-bar.show { display:flex; }
+.print-bar .btn-print { background:var(--primary); color:white; padding:10px 28px; border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; }
+
+.cards-wrap { display:none; padding:16px; background:#e2e8f0; }
+.cards-wrap.show { display:block; }
+.card-page { background:white; width:210mm; min-height:297mm; margin:0 auto 16px; display:grid; grid-template-columns:repeat(4,1fr); box-shadow:0 2px 8px rgba(0,0,0,0.12); }
+
+.kuji-card { width:100%; aspect-ratio:52/74; border:0.5px solid #cbd5e0; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:4px 4px 3px; page-break-inside:avoid; }
+.kuji-card.type-tax      { background:#fffde7; border-color:#f9a825; }
+.kuji-card.type-mobility { background:#e8f5e9; border-color:#43a047; }
+.kuji-card.type-regular  { background:#ffffff; border-color:#b0bec5; }
+.kuji-card.empty         { background:#f7fafc; border:0.5px dashed #e2e8f0; }
+
+.card-label { font-size:7px; font-weight:700; text-align:center; width:100%; }
+.type-tax      .card-label { color:#7b5800; }
+.type-mobility .card-label { color:#1b5e20; }
+.type-regular  .card-label { color:#4a5568; }
+
+.rounds-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; width:100%; }
+.round-block { display:flex; flex-direction:column; align-items:center; line-height:1; }
+.table-letter { font-size:60pt; font-weight:900; letter-spacing:-2px; line-height:1; color:#1a202c; }
+.type-tax      .table-letter { color:#7b4f00; }
+.type-mobility .table-letter { color:#1a4731; }
+.round-num { font-size:8px; color:#718096; font-weight:700; margin-top:2px; }
+.divider { width:70%; height:0.5px; background:#cbd5e0; margin:4px 0; }
+.type-tax      .divider { background:#f9a825; }
+.type-mobility .divider { background:#43a047; }
+.card-foot { width:100%; text-align:center; }
+.card-note { font-size:5.5px; color:#718096; line-height:1.5; }
+.card-date-lbl { font-size:6px; color:#a0aec0; margin-top:1px; font-weight:600; letter-spacing:0.5px; }
+
+@media print {
+  @page { size:A4 portrait; margin:0; }
+  body { background:white; }
+  .page, .print-bar { display:none !important; }
+  .cards-wrap { display:block !important; padding:0; background:white; }
+  .card-page { width:210mm; height:297mm; margin:0; box-shadow:none; page-break-after:always; break-after:page; }
+  .card-page:last-child { page-break-after:auto; break-after:auto; }
+  .table-letter { font-size:22mm; }
+  .card-label { font-size:5pt; }
+  .round-num { font-size:6pt; }
+  .card-note { font-size:4pt; }
+  .card-date-lbl { font-size:5pt; }
+}
+</style>
+</head>
+<body>
+
+<div class="page" id="formSection">
+  <div style="text-align:center;margin-bottom:6px;"><span class="badge">シンプル版 — 人数入力のみ</span></div>
+  <h1>🎲 懇親会 席替えくじ</h1>
+  <p class="subtitle">人数を入力してくじを生成します</p>
+
+  <div class="card">
+    <div class="section-label">基本設定</div>
+    <div class="field"><label>① 全体の参加人数</label><input type="number" id="totalCount" min="1" placeholder="例：150"></div>
+    <div class="field"><label>② テーブル数</label><input type="number" id="tableCount" min="1" max="52" placeholder="例：17"></div>
+    <div class="field"><label>③ 1テーブルの人数</label><input type="number" id="perTable" min="1" max="20" placeholder="例：9"></div>
+
+    <div class="section-label">特別対応枠（固定席）</div>
+    <div class="field"><label>④ パートナー税理士の人数</label><input type="number" id="taxCount" min="0" value="0"></div>
+    <div class="field"><label>⑤ お足元が不自由な方の人数</label><input type="number" id="mobilityCount" min="0" value="0"></div>
+
+    <div class="section-label">開催日</div>
+    <div class="field"><input type="date" id="eventDate"></div>
+
+    <div class="warn-box" id="warnBox"></div>
+    <div class="info-box" id="infoBox" style="display:none;"></div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#fffde7;border-color:#f9a825;"></div>パートナー税理士様</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;border-color:#43a047;"></div>お足元が不自由な方</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff;border-color:#b0bec5;"></div>席替え</div>
+    </div>
+
+    <button class="btn btn-primary" onclick="onGenerate()">🎲 くじを生成する</button>
+  </div>
+</div>
+
+<!-- PRINT BAR -->
+<div class="print-bar" id="printBar">
+  <button class="btn btn-outline btn-sm" onclick="goBack()">← 入力に戻る</button>
+  <span style="font-size:13px;color:#718096;" id="cardCountInfo"></span>
+  <button class="btn btn-gray btn-sm" onclick="onGenerate()">🔀 再抽選</button>
+  <button class="btn-print" onclick="downloadPDF()">📄 PDFダウンロード</button>
+  <button class="btn-print" style="background:#4a5568;" onclick="window.print()">🖨️ 印刷する</button>
+</div>
+
+<div class="cards-wrap" id="cardsWrap"></div>
+
+<script>
+const tblLabel = t => t < 0 ? '?' : t < 26
+  ? String.fromCharCode(65 + t)
+  : String.fromCharCode(64 + Math.floor(t / 26)) + String.fromCharCode(65 + (t % 26));
+const fmtDate = s => s.replace(/-/g, '.');
+
+// Set default date to today
+document.getElementById('eventDate').value = new Date().toISOString().slice(0, 10);
+
+function getVals() {
+  return {
+    totalCount:    parseInt(document.getElementById('totalCount').value)    || 0,
+    tableCount:    parseInt(document.getElementById('tableCount').value)    || 0,
+    perTable:      parseInt(document.getElementById('perTable').value)      || 0,
+    taxCount:      parseInt(document.getElementById('taxCount').value)      || 0,
+    mobilityCount: parseInt(document.getElementById('mobilityCount').value) || 0,
+  };
+}
+
+function validate() {
+  const v = getVals();
+  const cap  = v.tableCount * v.perTable;
+  const warn = document.getElementById('warnBox');
+  const info = document.getElementById('infoBox');
+  const errs = [];
+
+  if (!v.totalCount)  errs.push('参加人数を入力');
+  if (!v.tableCount)  errs.push('テーブル数を入力');
+  if (!v.perTable)    errs.push('1テーブルの人数を入力');
+  if (v.tableCount > 52) errs.push('テーブル数は52以下');
+  if (v.taxCount + v.mobilityCount > v.totalCount)
+    errs.push('特別枠が参加人数を超えています');
+  if (v.tableCount && v.perTable && v.totalCount > cap)
+    errs.push(`参加人数${v.totalCount}人 > 席数${cap}席`);
+
+  if (errs.length) {
+    warn.textContent = errs.join(' / ');
+    warn.style.display = 'block';
+    info.style.display = 'none';
+    return null;
+  }
+
+  const regularCount = v.totalCount - v.taxCount - v.mobilityCount;
+  warn.style.display = 'none';
+  info.innerHTML = `📋 合計 <b>${v.totalCount}枚</b>（空席 ${cap - v.totalCount}席）<br>
+    👤 一般 <b>${regularCount}</b> ／ 税理士 <b>${v.taxCount}</b>・お足元が不自由な方 <b>${v.mobilityCount}</b><br>
+    🪑 <b>${Array.from({length:v.tableCount},(_,i)=>tblLabel(i)).join(', ')}</b>`;
+  info.style.display = 'block';
+  return { ...v, regularCount };
+}
+
+function generateSeating(tc, pt, tax, mob, regular) {
+  const used = new Array(tc).fill(0);
+
+  function assignEvenly(count, start) {
+    const r1 = [];
+    let cur = start % tc;
+    for (let i = 0; i < count; i++) {
+      let ok = false;
+      for (let a = 0; a < tc * pt; a++) {
+        const t = (cur + a) % tc;
+        if (used[t] < pt) { r1.push(t); used[t]++; cur = (t+1)%tc; ok=true; break; }
+      }
+      if (!ok) r1.push(-1);
+    }
+    return r1;
+  }
+
+  function derange(r1) {
+    const r2 = new Array(r1.length).fill(-1);
+    const grp = {};
+    for (let t = 0; t < tc; t++) grp[t] = [];
+    r1.forEach((t, i) => { if (t >= 0) grp[t].push(i); });
+    for (let t = 0; t < tc; t++)
+      grp[t].forEach((idx, rank) => { r2[idx] = (t + rank + 1) % tc; });
+    return r2;
+  }
+
+  const people = [];
+
+  // お足元が不自由な方: テーブルA固定、両ラウンド同じ
+  for (let i = 0; i < mob; i++) {
+    if (used[0] < pt) used[0]++;
+    people.push({ type: 'mobility', r1: tblLabel(0), r2: tblLabel(0) });
+  }
+
+  // パートナー税理士: 均等配分、両ラウンド同じ
+  assignEvenly(tax, 0).forEach(t =>
+    people.push({ type: 'tax', r1: tblLabel(t), r2: tblLabel(t) }));
+
+  // 一般参加者: 均等配分、2回目は必ず別テーブル
+  const regR1 = assignEvenly(regular, 0);
+  const regR2 = derange(regR1);
+  regR1.forEach((t, i) =>
+    people.push({ type: 'regular', r1: tblLabel(t), r2: tblLabel(regR2[i]) }));
+
+  // ソート: 特別枠を1ページ目に
+  const ord = { mobility: 0, tax: 1, regular: 2 };
+  people.sort((a, b) => ord[a.type] - ord[b.type]);
+  return people;
+}
+
+const LABELS = { tax: 'パートナー税理士様', mobility: '', regular: '席替え' };
+
+function cardHTML(p, dt) {
+  return `<div class="kuji-card type-${p.type}">
+    <div class="card-label">${LABELS[p.type]}</div>
+    <div class="rounds-area">
+      <div class="round-block"><div class="table-letter">${p.r1}</div><div class="round-num">1</div></div>
+      <div class="divider"></div>
+      <div class="round-block"><div class="table-letter">${p.r2}</div><div class="round-num">2</div></div>
+    </div>
+    <div class="card-foot">
+      <div class="card-note">ネームプレートの後ろへ<br>お入れください</div>
+      <div class="card-date-lbl">${dt}</div>
+    </div>
+  </div>`;
+}
+
+function onGenerate() {
+  const p = validate();
+  if (!p) return;
+  const dt = fmtDate(document.getElementById('eventDate').value);
+  const people = generateSeating(p.tableCount, p.perTable, p.taxCount, p.mobilityCount, p.regularCount);
+  renderCards(people, dt, p.totalCount);
+}
+
+function renderCards(people, dt, total) {
+  const PER = 16;
+  const wrap = document.getElementById('cardsWrap');
+  wrap.innerHTML = '';
+
+  const padded = [...people];
+  while (padded.length % 4) padded.push(null);
+
+  for (let pg = 0; pg < Math.ceil(padded.length / PER); pg++) {
+    const el = document.createElement('div');
+    el.className = 'card-page';
+    const slice = padded.slice(pg * PER, (pg + 1) * PER);
+    while (slice.length < PER) slice.push(null);
+    slice.forEach(p => {
+      el.innerHTML += p ? cardHTML(p, dt) : '<div class="kuji-card empty"></div>';
+    });
+    wrap.appendChild(el);
+  }
+
+  document.getElementById('formSection').style.display = 'none';
+  document.getElementById('printBar').classList.add('show');
+  document.getElementById('cardsWrap').classList.add('show');
+  document.getElementById('cardCountInfo').textContent =
+    `${total}枚 / ${Math.ceil(padded.length / PER)}ページ`;
+}
+
+function downloadPDF() {
+  const btn = document.querySelector('.btn-print');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 生成中...';
+  btn.disabled = true;
+
+  const el = document.getElementById('cardsWrap');
+  html2pdf().set({
+    margin: 0,
+    filename: `席替えくじ_シンプル.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(el).save().then(() => {
+    btn.textContent = orig;
+    btn.disabled = false;
+  });
+}
+
+function goBack() {
+  document.getElementById('formSection').style.display = 'block';
+  document.getElementById('printBar').classList.remove('show');
+  document.getElementById('cardsWrap').classList.remove('show');
+  document.getElementById('cardsWrap').innerHTML = '';
+}
+
+// バリデーション自動実行
+['totalCount','tableCount','perTable','taxCount','mobilityCount'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const v = getVals();
+    if (v.totalCount && v.tableCount && v.perTable) validate();
+    else document.getElementById('infoBox').style.display = 'none';
+  });
+});
+</script>
+</body>
+</html>
